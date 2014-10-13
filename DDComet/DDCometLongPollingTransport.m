@@ -136,6 +136,10 @@
 	
 	[request setHTTPMethod:@"POST"];
 	[request setValue:@"application/json;charset=UTF-8" forHTTPHeaderField:@"Content-Type"];
+	for (NSString *header in m_client.headers) {
+		NSString *value = [m_client.headers objectForKey:header];
+		[request setValue:value forHTTPHeaderField:header];
+	}
 	[request setHTTPBody:body];
 	
 	NSNumber *timeout = [m_client.advice objectForKey:@"timeout"];

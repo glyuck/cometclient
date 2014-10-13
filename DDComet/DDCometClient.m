@@ -22,7 +22,8 @@
 	endpointURL = m_endpointURL,
 	state = m_state,
 	advice = m_advice,
-	delegate = m_delegate;
+	delegate = m_delegate,
+	headers = m_headers;
 
 - (id)initWithURL:(NSURL *)endpointURL
 {
@@ -48,6 +49,7 @@
 	[m_clientID release];
 	[m_incomingProcessor release];
 	[m_advice release];
+	[m_headers release];
 	[super dealloc];
 }
 

@@ -187,7 +187,11 @@
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-	[m_responseDatas removeObjectForKey:[self keyWithConnection:connection]];
+    if (error.domain == NSURLErrorDomain && error.code == NSURLErrorTimedOut) {
+        [m_responseDatas removeObjectForKey:[self keyWithConnection:connection]];
+    } else {
+        [m_client URLConnectionDidFailWithError:error];
+    }
 }
 
 @end

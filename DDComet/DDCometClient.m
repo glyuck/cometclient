@@ -147,6 +147,12 @@
 	return m_incomingQueue;
 }
 
+- (void)URLConnectionDidFailWithError:(NSError *)error {
+    m_state = DDCometStateDisconnected;
+    if (m_delegate && [m_delegate respondsToSelector:@selector(cometClient:URLConnectionDidFailWithError:)])
+        [m_delegate cometClient:self URLConnectionDidFailWithError:error];
+}
+
 #pragma mark -
 
 - (NSString *)nextMessageID

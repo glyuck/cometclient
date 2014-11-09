@@ -59,11 +59,13 @@ typedef enum
 
 - (id<DDQueue>)outgoingQueue;
 - (id<DDQueue>)incomingQueue;
+- (void)URLConnectionDidFailWithError:(NSError *)error;
 
 @end
 
 @protocol DDCometClientDelegate <NSObject>
 @optional
+- (void)cometClient:(DDCometClient *)client URLConnectionDidFailWithError:(NSError *)error;
 - (void)cometClientHandshakeDidSucceed:(DDCometClient *)client;
 - (void)cometClient:(DDCometClient *)client handshakeDidFailWithError:(NSError *)error;
 - (void)cometClientConnectDidSucceed:(DDCometClient *)client;

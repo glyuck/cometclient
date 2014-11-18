@@ -4,20 +4,20 @@
 
 @interface DDCometMessage : NSObject
 
-@property (nonatomic, retain) NSString *channel;
-@property (nonatomic, retain) NSString *version;
-@property (nonatomic, retain) NSString *minimumVersion;
-@property (nonatomic, retain) NSArray *supportedConnectionTypes;
-@property (nonatomic, retain) NSString *clientID;
-@property (nonatomic, retain) NSDictionary *advice;
-@property (nonatomic, retain) NSString *connectionType;
-@property (nonatomic, retain) NSString *ID;
-@property (nonatomic, retain) NSDate *timestamp;
-@property (nonatomic, retain) id data;
-@property (nonatomic, retain) NSNumber *successful;
-@property (nonatomic, retain) NSString *subscription;
-@property (nonatomic, retain) NSError *error;
-@property (nonatomic, retain) id ext;
+@property (nonatomic, strong) NSString *channel;
+@property (nonatomic, strong) NSString *version;
+@property (nonatomic, strong) NSString *minimumVersion;
+@property (nonatomic, strong) NSArray *supportedConnectionTypes;
+@property (nonatomic, strong) NSString *clientID;
+@property (nonatomic, strong) NSDictionary *advice;
+@property (nonatomic, strong) NSString *connectionType;
+@property (nonatomic, strong) NSString *ID;
+@property (nonatomic, strong) NSDate *timestamp;
+@property (nonatomic, strong) id data;
+@property (nonatomic, strong) NSNumber *successful;
+@property (nonatomic, strong) NSString *subscription;
+@property (nonatomic, strong) NSError *error;
+@property (nonatomic, strong) id ext;
 
 + (DDCometMessage *)messageWithChannel:(NSString *)channel;
 

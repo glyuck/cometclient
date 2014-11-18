@@ -9,5 +9,5 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/sebreh/cometclient.git", :tag => s.version.to_s }
   s.platform     = :ios, '5.0'
   s.source_files = 'DDComet/**/*.{h,m}'
-  s.requires_arc = false
+  s.requires_arc = true
 end

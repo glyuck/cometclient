@@ -7,6 +7,10 @@
 
 @interface DDCometLongPollingTransport ()
 
+@property (atomic, weak) DDCometClient *client;
+@property (atomic, assign) BOOL shouldCancel;
+@property (atomic, strong) NSMutableDictionary *responseDatas;
+
 - (NSURLConnection *)sendMessages:(NSArray *)messages;
 - (NSArray *)outgoingMessages;
 - (NSURLRequest *)requestWithMessages:(NSArray *)messages;
@@ -20,18 +24,12 @@
 {
 	if ((self = [super init]))
 	{
-		m_client = [client retain];
-		m_responseDatas = [[NSMutableDictionary alloc] initWithCapacity:2];
+		self.client = client;
+		self.responseDatas = [[NSMutableDictionary alloc] initWithCapacity:2];
 	}
 	return self;
 }
 
-- (void)dealloc
-{
-	[m_responseDatas release];
-	[m_client release];
-	[super dealloc];
-}
 
 - (void)start
 {
@@ -40,7 +38,7 @@
 
 - (void)cancel
 {
-	m_shouldCancel = YES;
+	self.shouldCancel = YES;
 }
 
 #pragma mark -
@@ -49,50 +47,50 @@
 {
 	do
 	{
-		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-		NSArray *messages = [self outgoingMessages];
-		
-		BOOL isPolling;
-		if ([messages count] == 0)
-		{
-			if (m_client.state == DDCometStateConnected)
+		@autoreleasepool {
+			NSArray *messages = [self outgoingMessages];
+			
+			BOOL isPolling = NO;
+			if ([messages count] == 0)
 			{
-				isPolling = YES;
-				DDCometMessage *message = [DDCometMessage messageWithChannel:@"/meta/connect"];
-				message.clientID = m_client.clientID;
-				message.connectionType = @"long-polling";
-				DDCometClientLog(@"Sending long-poll message: %@", message);
-				messages = [NSArray arrayWithObject:message];
-			}
-			else
-			{
-				[NSThread sleepForTimeInterval:0.01];
-			}
-		}
-		
-		NSURLConnection *connection = [self sendMessages:messages];
-		if (connection)
-		{
-			NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
-			while ([runLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.01]])
-			{
-				if (isPolling)
+				if (self.client.state == DDCometStateConnected)
 				{
-					if (m_shouldCancel)
+					isPolling = YES;
+					DDCometMessage *message = [DDCometMessage messageWithChannel:@"/meta/connect"];
+					message.clientID = self.client.clientID;
+					message.connectionType = @"long-polling";
+					DDCometClientLog(@"Sending long-poll message: %@", message);
+					messages = [NSArray arrayWithObject:message];
+				}
+				else
+				{
+					[NSThread sleepForTimeInterval:0.01];
+				}
+			}
+			
+			NSURLConnection *connection = [self sendMessages:messages];
+			if (connection)
+			{
+				NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
+				while ([runLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.01]])
+				{
+					if (isPolling)
 					{
-						m_shouldCancel = NO;
-						[connection cancel];
-					}
-					else
-					{
-						messages = [self outgoingMessages];
-						[self sendMessages:messages];
+						if (self.shouldCancel)
+						{
+							self.shouldCancel = NO;
+							[connection cancel];
+						}
+						else
+						{
+							messages = [self outgoingMessages];
+							[self sendMessages:messages];
+						}
 					}
 				}
 			}
 		}
-		[pool release];
-	} while (m_client.state != DDCometStateDisconnected);
+	} while (self.client.state != DDCometStateDisconnected);
 }
 
 - (NSURLConnection *)sendMessages:(NSArray *)messages
@@ -116,7 +114,7 @@
 {
 	NSMutableArray *messages = [NSMutableArray array];
 	DDCometMessage *message;
-	id<DDQueue> outgoingQueue = [m_client outgoingQueue];
+	id<DDQueue> outgoingQueue = [self.client outgoingQueue];
 	while ((message = [outgoingQueue removeObject]))
 		[messages addObject:message];
 	return messages;
@@ -124,7 +122,7 @@
 
 - (NSURLRequest *)requestWithMessages:(NSArray *)messages
 {
-	NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:m_client.endpointURL];
+	NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.client.endpointURL];
   
   NSMutableArray *messagesData = [[NSMutableArray alloc] initWithCapacity:[messages count]];
   for (DDCometMessage *message in messages) {
@@ -132,17 +130,16 @@
   }
   
 	NSData *body = [NSJSONSerialization dataWithJSONObject:messagesData options:0 error:nil];
-  [messagesData release];
 	
 	[request setHTTPMethod:@"POST"];
 	[request setValue:@"application/json;charset=UTF-8" forHTTPHeaderField:@"Content-Type"];
-	for (NSString *header in m_client.headers) {
-		NSString *value = [m_client.headers objectForKey:header];
+	for (NSString *header in self.client.headers) {
+		NSString *value = [self.client.headers objectForKey:header];
 		[request setValue:value forHTTPHeaderField:header];
 	}
 	[request setHTTPBody:body];
 	
-	NSNumber *timeout = [m_client.advice objectForKey:@"timeout"];
+	NSNumber *timeout = [self.client.advice objectForKey:@"timeout"];
 	if (timeout)
 		[request setTimeoutInterval:([timeout floatValue] / 1000)];
 	
@@ -158,25 +155,24 @@
 
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
 {
-	[m_responseDatas setObject:[NSMutableData data] forKey:[self keyWithConnection:connection]];
+	[self.responseDatas setObject:[NSMutableData data] forKey:[self keyWithConnection:connection]];
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
 {
-	NSMutableData *responseData = [m_responseDatas objectForKey:[self keyWithConnection:connection]];
+	NSMutableData *responseData = [self.responseDatas objectForKey:[self keyWithConnection:connection]];
 	[responseData appendData:data];
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-	NSData *responseData = [[m_responseDatas objectForKey:[self keyWithConnection:connection]] retain];
-	[m_responseDatas removeObjectForKey:[self keyWithConnection:connection]];
+	NSData *responseData = [self.responseDatas objectForKey:[self keyWithConnection:connection]];
+	[self.responseDatas removeObjectForKey:[self keyWithConnection:connection]];
 	
   NSArray *responses = [NSJSONSerialization JSONObjectWithData:responseData options:0 error:nil];
-	[responseData release];
 	responseData = nil;
 	
-	id<DDQueue> incomingQueue = [m_client incomingQueue];
+	id<DDQueue> incomingQueue = [self.client incomingQueue];
 	
 	for (NSDictionary *messageData in responses)
 	{
@@ -188,9 +184,9 @@
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
     if (error.domain == NSURLErrorDomain && error.code == NSURLErrorTimedOut) {
-        [m_responseDatas removeObjectForKey:[self keyWithConnection:connection]];
+        [self.responseDatas removeObjectForKey:[self keyWithConnection:connection]];
     } else {
-        [m_client URLConnectionDidFailWithError:error];
+        [self.client URLConnectionDidFailWithError:error];
     }
 }
 

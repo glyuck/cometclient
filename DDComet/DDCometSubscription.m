@@ -1,44 +1,43 @@
 
 #import "DDCometSubscription.h"
 
+@interface DDCometSubscription ()
+
+@property (nonatomic, copy, readwrite) NSString *channel;
+@property (nonatomic, weak, readwrite) id target;
+@property (nonatomic, assign, readwrite) SEL selector;
+
+@end
+
 
 @implementation DDCometSubscription
-
-@synthesize channel = m_channel,
-	target = m_target,
-	selector = m_selector;
 
 - (id)initWithChannel:(NSString *)channel target:(id)target selector:(SEL)selector
 {
 	if ((self = [super init]))
 	{
-		m_channel = [channel retain];
-		m_target = target;
-		m_selector = selector;
+		self.channel = channel;
+		self.target = target;
+		self.selector = selector;
 	}
 	return self;
 }
 
-- (void)dealloc
-{
-	[m_channel release];
-	[super dealloc];
-}
 
 - (BOOL)matchesChannel:(NSString *)channel
 {
-	if ([m_channel isEqualToString:channel])
+	if ([self.channel isEqualToString:channel])
 		return YES;
-	if ([m_channel hasSuffix:@"/**"])
+	if ([self.channel hasSuffix:@"/**"])
 	{
-		NSString *prefix = [m_channel substringToIndex:([m_channel length] - 2)];
+		NSString *prefix = [self.channel substringToIndex:([self.channel length] - 2)];
 		if ([channel hasPrefix:prefix])
 			return YES;
 	}
-	else if ([m_channel hasSuffix:@"/*"])
+	else if ([self.channel hasSuffix:@"/*"])
 	{
-		NSString *prefix = [m_channel substringToIndex:([m_channel length] - 1)];
-		if ([channel hasPrefix:prefix] && [[channel substringFromIndex:([m_channel length] - 1)] rangeOfString:@"*"].location == NSNotFound)
+		NSString *prefix = [self.channel substringToIndex:([self.channel length] - 1)];
+		if ([channel hasPrefix:prefix] && [[channel substringFromIndex:([self.channel length] - 1)] rangeOfString:@"*"].location == NSNotFound)
 			return YES;
 	}
 	return NO;

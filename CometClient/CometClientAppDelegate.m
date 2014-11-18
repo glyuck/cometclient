@@ -12,11 +12,6 @@
 
 @implementation CometClientAppDelegate
 
-
-@synthesize window=_window;
-
-@synthesize mainViewController=_mainViewController;
-
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
 	// Override point for customization after application launch.
@@ -65,11 +60,5 @@
 	 */
 }
 
-- (void)dealloc
-{
-	[_window release];
-	[_mainViewController release];
-    [super dealloc];
-}
 
 @end

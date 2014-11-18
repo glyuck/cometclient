@@ -10,6 +10,18 @@
 
 @interface DDCometClient ()
 
+@property (nonatomic, copy, readwrite) NSString *clientID;
+@property (nonatomic, strong, readwrite) NSURL *endpointURL;
+@property (nonatomic, assign, readwrite) DDCometState state;
+@property (atomic, copy, readwrite) NSDictionary *advice;
+@property (atomic, assign) int32_t messageCounter;
+@property (nonatomic, strong) NSMutableDictionary *pendingSubscriptions;
+@property (nonatomic, strong) NSMutableArray *subscriptions;
+@property (nonatomic, strong) id<DDQueue> outgoingQueue;
+@property (nonatomic, strong) id<DDQueue> incomingQueue;
+@property (nonatomic, strong) DDCometLongPollingTransport *transport;
+@property (nonatomic, strong) DDQueueProcessor *incomingProcessor;
+
 - (NSString *)nextMessageID;
 - (void)sendMessage:(DDCometMessage *)message;
 - (void)handleMessage:(DDCometMessage *)message;
@@ -18,57 +30,36 @@
 
 @implementation DDCometClient
 
-@synthesize clientID = m_clientID,
-	endpointURL = m_endpointURL,
-	state = m_state,
-	advice = m_advice,
-	delegate = m_delegate,
-	headers = m_headers;
-
 - (id)initWithURL:(NSURL *)endpointURL
 {
 	if ((self = [super init]))
 	{
-		m_endpointURL = [endpointURL retain];
-		m_pendingSubscriptions = [[NSMutableDictionary alloc] init];
-		m_subscriptions = [[NSMutableArray alloc] init];
-		m_outgoingQueue = [[DDConcurrentQueue alloc] init];
-		m_incomingQueue = [[DDConcurrentQueue alloc] init];
+		self.endpointURL = endpointURL;
+		self.pendingSubscriptions = [[NSMutableDictionary alloc] init];
+		self.subscriptions = [[NSMutableArray alloc] init];
+		self.outgoingQueue = [[DDConcurrentQueue alloc] init];
+		self.incomingQueue = [[DDConcurrentQueue alloc] init];
 	}
 	return self;
 }
 
-- (void)dealloc
-{
-	[m_transport release];
-	[m_incomingQueue release];
-	[m_outgoingQueue release];
-	[m_subscriptions release];
-	[m_pendingSubscriptions release];
-	[m_endpointURL release];
-	[m_clientID release];
-	[m_incomingProcessor release];
-	[m_advice release];
-	[m_headers release];
-	[super dealloc];
-}
 
 - (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode
 {
-	m_incomingProcessor = [[DDQueueProcessor alloc] initWithTarget:self selector:@selector(processIncomingMessages)];
-	[m_incomingQueue setDelegate:m_incomingProcessor];
-	[m_incomingProcessor scheduleInRunLoop:runLoop forMode:mode];
+	self.incomingProcessor = [[DDQueueProcessor alloc] initWithTarget:self selector:@selector(processIncomingMessages)];
+	[self.incomingQueue setDelegate:self.incomingProcessor];
+	[self.incomingProcessor scheduleInRunLoop:runLoop forMode:mode];
 }
 
 - (DDCometMessage *)handshake
 {
-  if (m_state == DDCometStateConnecting) {
-    DDCometClientLog(@"Only one pending handshake allowed at one time.");
-    return nil;
-  }
-  
-  m_state = DDCometStateConnecting;
-	
+	if (self.state == DDCometStateConnecting) {
+		DDCometClientLog(@"Only one pending handshake allowed at one time.");
+		return nil;
+	}
+
+	self.state = DDCometStateConnecting;
+
 	DDCometMessage *message = [DDCometMessage messageWithChannel:@"/meta/handshake"];
 	message.version = @"1.0";
 	message.supportedConnectionTypes = [NSArray arrayWithObject:@"long-polling"];
@@ -79,8 +70,8 @@
 
 - (DDCometMessage *)disconnect
 {
-	m_state = DDCometStateDisconnecting;
-	
+	self.state = DDCometStateDisconnecting;
+
 	DDCometMessage *message = [DDCometMessage messageWithChannel:@"/meta/disconnect"];
 	[self sendMessage:message];
 	return message;
@@ -88,18 +79,18 @@
 
 - (DDCometMessage *)subscribeToChannel:(NSString *)channel target:(id)target selector:(SEL)selector
 {
-  return [self subscribeToChannel:channel extensions:nil target:target selector:selector];
+	return [self subscribeToChannel:channel extensions:nil target:target selector:selector];
 }
 
 - (DDCometMessage *)subscribeToChannel:(NSString *)channel extensions:(id)extensions target:(id)target selector:(SEL)selector {
-  DDCometMessage *message = [DDCometMessage messageWithChannel:@"/meta/subscribe"];
+	DDCometMessage *message = [DDCometMessage messageWithChannel:@"/meta/subscribe"];
 	message.ID = [self nextMessageID];
 	message.subscription = channel;
 	message.ext = extensions;
-	DDCometSubscription *subscription = [[[DDCometSubscription alloc] initWithChannel:channel target:target selector:selector] autorelease];
-	@synchronized(m_pendingSubscriptions)
+	DDCometSubscription *subscription = [[DDCometSubscription alloc] initWithChannel:channel target:target selector:selector];
+	@synchronized(self.pendingSubscriptions)
 	{
-		[m_pendingSubscriptions setObject:subscription forKey:message.ID];
+		[self.pendingSubscriptions setObject:subscription forKey:message.ID];
 	}
 	[self sendMessage:message];
 	return message;
@@ -110,19 +101,19 @@
 	DDCometMessage *message = [DDCometMessage messageWithChannel:@"/meta/unsubscribe"];
 	message.ID = [self nextMessageID];
 	message.subscription = channel;
-	@synchronized(m_subscriptions)
+	@synchronized(self.subscriptions)
 	{
 		NSMutableIndexSet *indexes = [NSMutableIndexSet indexSet];
-		NSUInteger count = [m_subscriptions count];
+		NSUInteger count = [self.subscriptions count];
 		for (NSUInteger i = 0; i < count; i++)
 		{
-			DDCometSubscription *subscription = [m_subscriptions objectAtIndex:i];
+			DDCometSubscription *subscription = [self.subscriptions objectAtIndex:i];
 			if ([subscription.channel isEqualToString:channel] && subscription.target == target && subscription.selector == selector)
 			{
 				[indexes addIndex:i]; 
 			}
 		}
-		[m_subscriptions removeObjectsAtIndexes:indexes];
+		[self.subscriptions removeObjectsAtIndexes:indexes];
 	}
 	return message;
 }
@@ -137,41 +128,34 @@
 
 #pragma mark -
 
-- (id<DDQueue>)outgoingQueue
-{
-	return m_outgoingQueue;
-}
-
-- (id<DDQueue>)incomingQueue
-{
-	return m_incomingQueue;
-}
-
 - (void)URLConnectionDidFailWithError:(NSError *)error {
-    m_state = DDCometStateDisconnected;
-    if (m_delegate && [m_delegate respondsToSelector:@selector(cometClient:URLConnectionDidFailWithError:)])
-        [m_delegate cometClient:self URLConnectionDidFailWithError:error];
+	self.state = DDCometStateDisconnected;
+	if (self.delegate && [self.delegate respondsToSelector:@selector(cometClient:URLConnectionDidFailWithError:)])
+		[self.delegate cometClient:self URLConnectionDidFailWithError:error];
 }
 
 #pragma mark -
 
 - (NSString *)nextMessageID
 {
-	return [NSString stringWithFormat:@"%d", OSAtomicIncrement32Barrier(&m_messageCounter)];
+	@synchronized(self) {
+		self.messageCounter += 1;
+		return [NSString stringWithFormat:@"%d", self.messageCounter];
+	}
 }
 
 - (void)sendMessage:(DDCometMessage *)message
 {
-	message.clientID = m_clientID;
+	message.clientID = self.clientID;
 	if (!message.ID)
 		message.ID = [self nextMessageID];
 	DDCometClientLog(@"Sending message: %@", message);
-	[m_outgoingQueue addObject:message];
+	[self.outgoingQueue addObject:message];
 	
-	if (m_transport == nil)
+	if (self.transport == nil)
 	{
-		m_transport = [[DDCometLongPollingTransport alloc] initWithClient:self];
-		[m_transport start];
+		self.transport = [[DDCometLongPollingTransport alloc] initWithClient:self];
+		[self.transport start];
 	}
 }
 
@@ -185,91 +169,89 @@
 		{
 			if ([message.successful boolValue])
 			{
-				m_clientID = [message.clientID retain];
+				self.clientID = message.clientID;
 				
 				DDCometMessage *connectMessage = [DDCometMessage messageWithChannel:@"/meta/connect"];
 				connectMessage.connectionType = @"long-polling";
 				connectMessage.advice = @{@"timeout": @0};
 				[self sendMessage:connectMessage];
 				
-				if (m_delegate && [m_delegate respondsToSelector:@selector(cometClientHandshakeDidSucceed:)])
-					[m_delegate cometClientHandshakeDidSucceed:self];
+				if (self.delegate && [self.delegate respondsToSelector:@selector(cometClientHandshakeDidSucceed:)])
+					[self.delegate cometClientHandshakeDidSucceed:self];
 			}
 			else
 			{
-				m_state = DDCometStateDisconnected;
-				if (m_delegate && [m_delegate respondsToSelector:@selector(cometClient:handshakeDidFailWithError:)])
-					[m_delegate cometClient:self handshakeDidFailWithError:message.error];
+				self.state = DDCometStateDisconnected;
+				if (self.delegate && [self.delegate respondsToSelector:@selector(cometClient:handshakeDidFailWithError:)])
+					[self.delegate cometClient:self handshakeDidFailWithError:message.error];
 			}
 		}
 		else if ([channel isEqualToString:@"/meta/connect"])
 		{
 			if (message.advice)
 			{
-          [m_advice release];
-          m_advice = [message.advice retain];
+				self.advice = message.advice;
 			}
 			
-      if (![message.successful boolValue])
+			if (![message.successful boolValue])
 			{
-          m_state = DDCometStateDisconnected;
-          if (m_delegate && [m_delegate respondsToSelector:@selector(cometClient:connectDidFailWithError:)])
-          {
-              [m_delegate cometClient:self connectDidFailWithError:message.error];
-          }
-        
-          // Consider all channel subscriptions expired
-          [m_pendingSubscriptions removeAllObjects];
-          [m_subscriptions removeAllObjects];
-        
-          NSString *reconnectAdvice = [m_advice objectForKey:@"reconnect"];
-          if ([reconnectAdvice isEqualToString:@"handshake"]) {
-              DDCometClientLog(@"Connection failed, retrying handshake as adviced...");
-              [self handshake];
-          }
-      }
-      else if (m_state == DDCometStateConnecting)
-      {
-          m_state = DDCometStateConnected;
-          if (m_delegate && [m_delegate respondsToSelector:@selector(cometClientConnectDidSucceed:)])
-          {
-              [m_delegate cometClientConnectDidSucceed:self];
-          }
+				self.state = DDCometStateDisconnected;
+				if (self.delegate && [self.delegate respondsToSelector:@selector(cometClient:connectDidFailWithError:)])
+				{
+					[self.delegate cometClient:self connectDidFailWithError:message.error];
+				}
+		
+				// Consider all channel subscriptions expired
+				[self.pendingSubscriptions removeAllObjects];
+				[self.subscriptions removeAllObjects];
+		
+				NSString *reconnectAdvice = [self.advice objectForKey:@"reconnect"];
+				if ([reconnectAdvice isEqualToString:@"handshake"]) {
+					DDCometClientLog(@"Connection failed, retrying handshake as adviced...");
+					[self handshake];
+				}
+			}
+			else if (self.state == DDCometStateConnecting)
+			{
+				self.state = DDCometStateConnected;
+				if (self.delegate && [self.delegate respondsToSelector:@selector(cometClientConnectDidSucceed:)])
+				{
+					[self.delegate cometClientConnectDidSucceed:self];
+			}
 			}
 		}
 		else if ([channel isEqualToString:@"/meta/disconnect"])
 		{
-			m_state = DDCometStateDisconnected;
-			[m_transport cancel];
-			[m_transport release];
-			m_transport = nil;
+			self.state = DDCometStateDisconnected;
+			[self.transport cancel];
+			self.transport = nil;
 		}
 		else if ([channel isEqualToString:@"/meta/subscribe"])
 		{
 			DDCometSubscription *subscription = nil;
-			@synchronized(m_pendingSubscriptions)
+			@synchronized(self.pendingSubscriptions)
 			{
-				subscription = [[[m_pendingSubscriptions objectForKey:message.ID] retain] autorelease];
+				subscription = [self.pendingSubscriptions objectForKey:message.ID];
 				if (subscription)
-					[m_pendingSubscriptions removeObjectForKey:message.ID];
+					[self.pendingSubscriptions removeObjectForKey:message.ID];
 			}
 			if ([message.successful boolValue])
 			{
-        if (subscription)
-        {
-					@synchronized(m_subscriptions)
+				if (subscription)
+				{
+					@synchronized(self.subscriptions)
 					{
-						[m_subscriptions addObject:subscription];
+						[self.subscriptions addObject:subscription];
 					}
 					
-					if (m_delegate && [m_delegate respondsToSelector:@selector(cometClient:subscriptionDidSucceed:)])
-						[m_delegate cometClient:self subscriptionDidSucceed:subscription];
-        }
+					if (self.delegate && [self.delegate respondsToSelector:@selector(cometClient:subscriptionDidSucceed:)])
+						[self.delegate cometClient:self subscriptionDidSucceed:subscription];
+				}
 			}
 			else
 			{
-				if (m_delegate && [m_delegate respondsToSelector:@selector(cometClient:subscription:didFailWithError:)])
-					[m_delegate cometClient:self subscription:subscription didFailWithError:message.error];
+				if (self.delegate && [self.delegate respondsToSelector:@selector(cometClient:subscription:didFailWithError:)])
+					[self.delegate cometClient:self subscription:subscription didFailWithError:message.error];
 			}
 		}
 		else
@@ -280,23 +262,27 @@
 	else
 	{
 		NSMutableArray *subscriptions = [NSMutableArray array];
-		@synchronized(m_subscriptions)
+		@synchronized(self.subscriptions)
 		{
-			for (DDCometSubscription *subscription in m_subscriptions)
+			for (DDCometSubscription *subscription in self.subscriptions)
 			{
 				if ([subscription matchesChannel:message.channel])
 					[subscriptions addObject:subscription];
 			}
 		}
-		for (DDCometSubscription *subscription in subscriptions)
+        for (DDCometSubscription *subscription in subscriptions) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
 			[subscription.target performSelector:subscription.selector withObject:message];
-	}
+#pragma clang diagnostic pop
+        }
+    }
 }
 
 - (void)processIncomingMessages
 {
 	DDCometMessage *message;
-	while ((message = [m_incomingQueue removeObject]))
+	while ((message = [self.incomingQueue removeObject]))
 		[self handleMessage:message];
 }
 @end

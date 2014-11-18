@@ -4,14 +4,6 @@
 
 
 @interface DDQueueProcessor : NSObject <DDQueueDelegate>
-{
-@private
-	id m_target;
-	SEL m_selector;
-	CFRunLoopSourceRef m_source;
-	NSRunLoop *m_runLoop;
-	NSString *m_mode;
-}
 
 + (DDQueueProcessor *)queueProcessorWithQueue:(id<DDQueue>)queue
 									   target:(id)target

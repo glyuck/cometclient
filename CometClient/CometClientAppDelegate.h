@@ -10,12 +10,10 @@
 
 @class MainViewController;
 
-@interface CometClientAppDelegate : NSObject <UIApplicationDelegate> {
+@interface CometClientAppDelegate : NSObject <UIApplicationDelegate>
 
-}
+@property (nonatomic, strong) IBOutlet UIWindow *window;
 
-@property (nonatomic, retain) IBOutlet UIWindow *window;
-
-@property (nonatomic, retain) IBOutlet MainViewController *mainViewController;
+@property (nonatomic, strong) IBOutlet MainViewController *mainViewController;
 
 @end

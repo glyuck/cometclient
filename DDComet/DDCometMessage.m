@@ -12,14 +12,14 @@
 
 + (NSDate *)dateWithISO8601String:(NSString *)string
 {
-	NSDateFormatter *fmt = [[[NSDateFormatter alloc] init] autorelease];
+	NSDateFormatter *fmt = [[NSDateFormatter alloc] init];
 	[fmt setDateFormat:@"yyyy-MM-dd'T'HH:mm:ss"];
 	return [fmt dateFromString:string];
 }
 
 - (NSString *)ISO8601Representation
 {
-	NSDateFormatter *fmt = [[[NSDateFormatter alloc] init] autorelease];
+	NSDateFormatter *fmt = [[NSDateFormatter alloc] init];
 	[fmt setDateFormat:@"yyyy-MM-dd'T'HH:mm:ss"];
 	return [fmt stringFromDate:self];
 }
@@ -49,7 +49,7 @@
   }
   
   NSDictionary *userInfo = [NSDictionary dictionaryWithObjectsAndKeys:description, NSLocalizedDescriptionKey, nil];
-	return [[[NSError alloc] initWithDomain:@"" code:code userInfo:userInfo] autorelease];
+	return [[NSError alloc] initWithDomain:@"" code:code userInfo:userInfo];
 }
 
 - (NSString *)bayeuxFormat
@@ -63,43 +63,9 @@
 
 @implementation DDCometMessage
 
-@synthesize channel = m_channel,
-	version = m_version,
-	minimumVersion = m_minimumVersion,
-	supportedConnectionTypes = m_supportedConnectionTypes,
-	clientID = m_clientID,
-	advice = m_advice,
-	connectionType = m_connectionType,
-	ID = m_ID,
-	timestamp = m_timestamp,
-	data = m_data,
-	successful = m_successful,
-	subscription = m_subscription,
-	error = m_error,
-	ext = m_ext;
-
-- (void)dealloc
-{
-    [m_channel release];
-	[m_version release];
-	[m_minimumVersion release];
-	[m_supportedConnectionTypes release];
-	[m_clientID release];
-	[m_advice release];
-	[m_connectionType release];
-	[m_ID release];
-	[m_timestamp release];
-	[m_data release];
-	[m_successful release];
-	[m_subscription release];
-	[m_error release];
-	[m_ext release];
-    [super dealloc];
-}
-
 + (DDCometMessage *)messageWithChannel:(NSString *)channel
 {
-	DDCometMessage *message = [[[DDCometMessage alloc] init] autorelease];
+	DDCometMessage *message = [[DDCometMessage alloc] init];
 	message.channel = channel;
 	return message;
 }
@@ -110,7 +76,7 @@
 
 + (DDCometMessage *)messageWithJson:(NSDictionary *)jsonData
 {
-	DDCometMessage *message = [[[DDCometMessage alloc] init] autorelease];
+	DDCometMessage *message = [[DDCometMessage alloc] init];
 	for (NSString *key in [jsonData keyEnumerator])
 	{
 		id object = [jsonData objectForKey:key];
@@ -150,34 +116,34 @@
 - (NSDictionary *)proxyForJson
 {
 	NSMutableDictionary *dict = [NSMutableDictionary dictionary];
-	if (m_channel)
-		[dict setObject:m_channel forKey:@"channel"];
-	if (m_version)
-		[dict setObject:m_version forKey:@"version"];
-	if (m_minimumVersion)
-		[dict setObject:m_minimumVersion forKey:@"minimumVersion"];
-	if (m_supportedConnectionTypes)
-		[dict setObject:m_supportedConnectionTypes forKey:@"supportedConnectionTypes"];
-	if (m_clientID)
-		[dict setObject:m_clientID forKey:@"clientId"];
-	if (m_advice)
-		[dict setObject:m_advice forKey:@"advice"];
-	if (m_connectionType)
-		[dict setObject:m_connectionType forKey:@"connectionType"];
-	if (m_ID)
-		[dict setObject:m_ID forKey:@"id"];
-	if (m_timestamp)
-		[dict setObject:[m_timestamp ISO8601Representation] forKey:@"timestamp"];
-	if (m_data)
-		[dict setObject:m_data forKey:@"data"];
-	if (m_successful)
-		[dict setObject:m_successful forKey:@"successful"];
-	if (m_subscription)
-		[dict setObject:m_subscription forKey:@"subscription"];
-	if (m_error)
-		[dict setObject:[m_error bayeuxFormat] forKey:@"error"];
-	if (m_ext)
-		[dict setObject:m_ext forKey:@"ext"];
+	if (self.channel)
+		[dict setObject:self.channel forKey:@"channel"];
+	if (self.version)
+		[dict setObject:self.version forKey:@"version"];
+	if (self.minimumVersion)
+		[dict setObject:self.minimumVersion forKey:@"minimumVersion"];
+	if (self.supportedConnectionTypes)
+		[dict setObject:self.supportedConnectionTypes forKey:@"supportedConnectionTypes"];
+	if (self.clientID)
+		[dict setObject:self.clientID forKey:@"clientId"];
+	if (self.advice)
+		[dict setObject:self.advice forKey:@"advice"];
+	if (self.connectionType)
+		[dict setObject:self.connectionType forKey:@"connectionType"];
+	if (self.ID)
+		[dict setObject:self.ID forKey:@"id"];
+	if (self.timestamp)
+		[dict setObject:[self.timestamp ISO8601Representation] forKey:@"timestamp"];
+	if (self.data)
+		[dict setObject:self.data forKey:@"data"];
+	if (self.successful)
+		[dict setObject:self.successful forKey:@"successful"];
+	if (self.subscription)
+		[dict setObject:self.subscription forKey:@"subscription"];
+	if (self.error)
+		[dict setObject:[self.error bayeuxFormat] forKey:@"error"];
+	if (self.ext)
+		[dict setObject:self.ext forKey:@"ext"];
 	return dict;
 }
 

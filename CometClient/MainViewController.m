@@ -4,31 +4,31 @@
 #import "DDCometMessage.h"
 
 
+@interface MainViewController ()
+
+@property (nonatomic, strong) DDCometClient *client;
+
+@end
+
+
 @implementation MainViewController
-
-@synthesize textView = m_textView,
-	textField = m_textField;
-
-- (void)dealloc
-{
-	[m_client release];
-	[super dealloc];
-}
 
 - (void)viewDidLoad
 {
-	if (m_client == nil)
+    [super viewDidLoad];
+	if (self.client == nil)
 	{
-		m_client = [[DDCometClient alloc] initWithURL:[NSURL URLWithString:@"http://localhost:8080/cometd"]];
-		m_client.delegate = self;
-		[m_client scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
-		[m_client handshake];
+		self.client = [[DDCometClient alloc] initWithURL:[NSURL URLWithString:@"http://localhost:8080/cometd"]];
+		self.client.delegate = self;
+		[self.client scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+		[self.client handshake];
 	}
 }
 
 - (void)viewWillAppear:(BOOL)animated
 {
-	[m_textField becomeFirstResponder];
+    [super viewWillAppear:animated];
+	[self.textField becomeFirstResponder];
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
@@ -40,16 +40,16 @@
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField
 {
-	NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:m_textField.text, @"chat", @"iPhone user", @"user", nil];
-	[m_client publishData:data toChannel:@"/chat/demo"];
+	NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:self.textField.text, @"chat", @"iPhone user", @"user", nil];
+	[self.client publishData:data toChannel:@"/chat/demo"];
 	
-	m_textField.text = @"";
+	self.textField.text = @"";
 	return YES;
 }
 
 - (void)appendText:(NSString *)text
 {
-	m_textView.text = [m_textView.text stringByAppendingFormat:@"%@\n", text];
+	self.textView.text = [self.textView.text stringByAppendingFormat:@"%@\n", text];
 }
 
 #pragma mark -
@@ -64,7 +64,7 @@
 	[client subscribeToChannel:@"/members/demo" target:self selector:@selector(membershipMessageReceived:)];
 	
 	NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:@"/chat/demo", @"room", @"iPhone user", @"user", nil];
-	[m_client publishData:data toChannel:@"/service/members"];
+	[self.client publishData:data toChannel:@"/service/members"];
 }
 
 - (void)cometClient:(DDCometClient *)client handshakeDidFailWithError:(NSError *)error

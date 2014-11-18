@@ -4,47 +4,51 @@
 
 
 @interface DDConcurrentQueueNode : NSObject
-{
-@private
-    id m_object;
-	DDConcurrentQueueNode * volatile m_next;
-}
 
-@property (nonatomic, retain) id object;
-@property (nonatomic, readonly) DDConcurrentQueueNode *next;
+@property (atomic, strong) id object;
+@property (atomic, strong, readonly) DDConcurrentQueueNode *next;
 
 - (BOOL)compareNext:(DDConcurrentQueueNode *)old andSet:(DDConcurrentQueueNode *)new;
 
 @end
 
+@interface DDConcurrentQueueNode ()
+
+@property (atomic, strong, readwrite) DDConcurrentQueueNode *next;
+
+@end
+
 @implementation DDConcurrentQueueNode
 
-@synthesize object = m_object, next = m_next;
 
 - (id)initWithObject:(id)object
 {
 	if ((self = [super init]))
 	{
-		m_object = [object retain];
+		self.object = object;
 	}
 	return self;
 }
 
-- (void)dealloc
-{
-	[m_object release];
-	[m_next release];
-	[super dealloc];
-}
-
 - (BOOL)compareNext:(DDConcurrentQueueNode *)old andSet:(DDConcurrentQueueNode *)new
 {
-	return OSAtomicCompareAndSwapPtrBarrier(old, new, (void * volatile *)&m_next);
+	@synchronized (self) {
+		if (old == self.next) {
+			self.next = new;
+			return YES;
+		}
+		return NO;
+	}
 }
 
 @end
 
 @interface DDConcurrentQueue ()
+
+@property (atomic, strong) DDConcurrentQueueNode *head;
+@property (atomic, strong) DDConcurrentQueueNode *tail;
+@property (atomic, weak) id<DDQueueDelegate> delegate;
+
 
 - (BOOL)compareHead:(DDConcurrentQueueNode *)old andSet:(DDConcurrentQueueNode *)new;
 - (BOOL)compareTail:(DDConcurrentQueueNode *)old andSet:(DDConcurrentQueueNode *)new;
@@ -58,8 +62,8 @@
 	if ((self = [super init]))
 	{
 		DDConcurrentQueueNode *node = [[DDConcurrentQueueNode alloc] init];
-		m_head = node;
-		m_tail = node;
+		self.head = node;
+		self.tail = node;
 	}
 	return self;
 }
@@ -69,9 +73,9 @@
 	DDConcurrentQueueNode *node = [[DDConcurrentQueueNode alloc] initWithObject:object];
 	while (YES)
 	{
-		DDConcurrentQueueNode *tail = m_tail;
+		DDConcurrentQueueNode *tail = self.tail;
 		DDConcurrentQueueNode *next = tail.next;
-		if (tail == m_tail)
+		if (tail == self.tail)
 		{
 			if (next == nil)
 			{
@@ -87,18 +91,18 @@
 			}
 		}
 	}
-	if (m_delegate)
-		[m_delegate queueDidAddObject:self];
+	if (self.delegate)
+		[self.delegate queueDidAddObject:self];
 }
 
 - (id)removeObject
 {
 	while (YES)
 	{
-		DDConcurrentQueueNode *head = m_head;
-		DDConcurrentQueueNode *tail = m_tail;
+		DDConcurrentQueueNode *head = self.head;
+		DDConcurrentQueueNode *tail = self.tail;
 		DDConcurrentQueueNode *first = head.next;
-		if (head == m_head)
+		if (head == self.head)
 		{
 			if (head == tail)
 			{
@@ -109,7 +113,7 @@
 			}
 			else if ([self compareHead:head andSet:first])
 			{
-				id object = [[first.object retain] autorelease];
+				id object = first.object;
 				if (object != nil)
 				{
 					first.object = nil;
@@ -121,19 +125,26 @@
 	}
 }
 
-- (void)setDelegate:(id<DDQueueDelegate>)delegate
-{
-	m_delegate = delegate;
-}
-
 - (BOOL)compareHead:(DDConcurrentQueueNode *)old andSet:(DDConcurrentQueueNode *)new
 {
-	return OSAtomicCompareAndSwapPtrBarrier(old, new, (void * volatile *)&m_head);
+	@synchronized(self) {
+		if (old == self.head) {
+			self.head = new;
+			return YES;
+		}
+		return NO;
+	}
 }
 
 - (BOOL)compareTail:(DDConcurrentQueueNode *)old andSet:(DDConcurrentQueueNode *)new
 {
-	return OSAtomicCompareAndSwapPtrBarrier(old, new, (void * volatile *)&m_tail);
+	@synchronized(self) {
+		if (old == self.tail) {
+			self.tail = new;
+			return YES;
+		}
+		return NO;
+	}
 }
 
 @end

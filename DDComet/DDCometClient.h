@@ -23,26 +23,13 @@ typedef enum
 } DDCometState;
 
 @interface DDCometClient : NSObject
-{
-@private
-	NSURL *m_endpointURL;
-	volatile int32_t m_messageCounter;
-	NSMutableDictionary *m_pendingSubscriptions; // by id
-	NSMutableArray *m_subscriptions;
-	DDCometState m_state;
-	NSDictionary *m_advice;
-	id<DDQueue> m_outgoingQueue;
-	id<DDQueue> m_incomingQueue;
-	DDCometLongPollingTransport *m_transport;
-	DDQueueProcessor *m_incomingProcessor;
-}
 
-@property (nonatomic, readonly) NSString *clientID;
-@property (nonatomic, readonly) NSURL *endpointURL;
-@property (nonatomic, readonly) DDCometState state;
+@property (nonatomic, copy, readonly) NSString *clientID;
+@property (nonatomic, strong, readonly) NSURL *endpointURL;
+@property (nonatomic, assign, readonly) DDCometState state;
 @property (nonatomic, copy) NSDictionary *headers;
-@property (readonly) NSDictionary *advice;
-@property (nonatomic, assign) id<DDCometClientDelegate> delegate;
+@property (atomic, copy, readonly) NSDictionary *advice;
+@property (nonatomic, weak) id<DDCometClientDelegate> delegate;
 
 - (id)initWithURL:(NSURL *)endpointURL;
 - (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;

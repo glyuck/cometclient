@@ -4,13 +4,24 @@
 
 void DDQueueProcessorPerform(void *info);
 
+@interface DDQueueProcessor ()
+
+@property (atomic, weak) id target;
+@property (atomic, assign) SEL selector;
+@property (atomic, assign) CFRunLoopSourceRef source;
+@property (atomic, strong) NSRunLoop *runLoop;
+@property (atomic, copy) NSString *mode;
+
+@end
+
+
 @implementation DDQueueProcessor
 
 + (DDQueueProcessor *)queueProcessorWithQueue:(id<DDQueue>)queue
 									   target:(id)target
 									 selector:(SEL)selector
 {
-	DDQueueProcessor *processor = [[[DDQueueProcessor alloc] initWithTarget:target selector:selector] autorelease];
+	DDQueueProcessor *processor = [[DDQueueProcessor alloc] initWithTarget:target selector:selector];
 	[queue setDelegate:processor];
 	[processor scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
 	return processor;
@@ -20,58 +31,56 @@ void DDQueueProcessorPerform(void *info);
 {
 	if ((self = [super init]))
 	{
-		m_target = target;
-		m_selector = selector;
+		self.target = target;
+		self.selector = selector;
 		
 		CFRunLoopSourceContext context =
 		{
-			0, self, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+			0, (__bridge void *)(self), NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 			DDQueueProcessorPerform
 		};
 		
-		m_source = CFRunLoopSourceCreate(NULL, 0, &context);
+		self.source = CFRunLoopSourceCreate(NULL, 0, &context);
 	}
 	return self;
 }
 
 - (void)dealloc
 {
-	if (m_runLoop)
-		CFRunLoopRemoveSource([m_runLoop getCFRunLoop], m_source, (CFStringRef)m_mode);
+	if (self.runLoop)
+		CFRunLoopRemoveSource([self.runLoop getCFRunLoop], self.source, (__bridge CFStringRef)self.mode);
 
-	[m_runLoop release];
-	[m_mode release];
-	CFRelease(m_source);
-    [super dealloc];
+	CFRelease(self.source);
 }
 
 - (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode
 {
 	@synchronized(self)
 	{
-		CFRunLoopAddSource([runLoop getCFRunLoop], m_source, (CFStringRef)mode);
-		[m_runLoop release];
-		m_runLoop = [runLoop retain];
-		[m_mode release];
-		m_mode = [mode retain];
+		CFRunLoopAddSource([runLoop getCFRunLoop], self.source, (__bridge CFStringRef)mode);
+		self.runLoop = runLoop;
+		self.mode = mode;
 	}
 }
 
 - (void)queueDidAddObject:(id<DDQueue>)queue
 {
-	CFRunLoopSourceSignal(m_source);
-	CFRunLoopWakeUp([m_runLoop getCFRunLoop]);
+	CFRunLoopSourceSignal(self.source);
+	CFRunLoopWakeUp([self.runLoop getCFRunLoop]);
 }
 
 - (void)makeTargetPeformSelector
 {
-	[m_target performSelector:m_selector];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+	[self.target performSelector:self.selector];
+#pragma clang diagnostic pop
 }
 
 @end
 
 void DDQueueProcessorPerform(void *info)
 {
-	DDQueueProcessor *processor = info;
+	DDQueueProcessor *processor = (__bridge DDQueueProcessor *)(info);
 	[processor makeTargetPeformSelector];
 }

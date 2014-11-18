@@ -61,6 +61,10 @@
 					message.connectionType = @"long-polling";
 					DDCometClientLog(@"Sending long-poll message: %@", message);
 					messages = [NSArray arrayWithObject:message];
+					NSTimeInterval interval = [self.client.advice[@"interval"] doubleValue] / 1000;
+					if (interval) {
+						[NSThread sleepForTimeInterval:interval];
+					}
 				}
 				else
 				{
